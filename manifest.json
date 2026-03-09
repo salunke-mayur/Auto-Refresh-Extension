@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "Auto Refresh Extension",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Automatically refresh the current page at a specified time interval with text monitoring",
-  "permissions": ["tabs", "storage", "alarms", "scripting", "notifications"],
+  "permissions": ["tabs", "storage", "alarms", "scripting", "notifications", "offscreen"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup.html",

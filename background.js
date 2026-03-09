@@ -1,6 +1,48 @@
 const activeRefreshers = new Map();
 const badgeIntervals = new Map();
 const pendingTextChecks = new Map();
+let creatingOffscreen = false;
+
+async function setupOffscreenDocument() {
+  const offscreenUrl = chrome.runtime.getURL('offscreen.html');
+  
+  // Check if offscreen document already exists
+  const existingContexts = await chrome.runtime.getContexts({
+    contextTypes: ['OFFSCREEN_DOCUMENT'],
+    documentUrls: [offscreenUrl]
+  });
+  
+  if (existingContexts.length > 0) {
+    return; // Already exists
+  }
+  
+  // Prevent race condition
+  if (creatingOffscreen) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    return setupOffscreenDocument();
+  }
+  
+  creatingOffscreen = true;
+  try {
+    await chrome.offscreen.createDocument({
+      url: offscreenUrl,
+      reasons: ['AUDIO_PLAYBACK'],
+      justification: 'Playing alert sound when monitored text is not found'
+    });
+  } catch (error) {
+    console.error('Error creating offscreen document:', error);
+  }
+  creatingOffscreen = false;
+}
+
+async function playAlarmSound() {
+  await setupOffscreenDocument();
+  try {
+    await chrome.runtime.sendMessage({ action: 'playAlarm' });
+  } catch (error) {
+    console.error('Error playing alarm:', error);
+  }
+}
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'start') {
@@ -87,57 +129,8 @@ async function checkTextOnPage(tabId, searchText) {
           // Stop the auto-refresh
           await stopRefresh(tabId);
 
-          // Play alert sound on the page
-          try {
-            await chrome.scripting.executeScript({
-              target: { tabId: tabId },
-              func: () => {
-                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                
-                function playBeep(frequency, startTime, duration, volume = 0.5) {
-                  const oscillator = audioContext.createOscillator();
-                  const gainNode = audioContext.createGain();
-                  
-                  oscillator.connect(gainNode);
-                  gainNode.connect(audioContext.destination);
-                  
-                  oscillator.frequency.value = frequency;
-                  oscillator.type = 'square';
-                  
-                  gainNode.gain.setValueAtTime(volume, startTime);
-                  gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
-                  
-                  oscillator.start(startTime);
-                  oscillator.stop(startTime + duration);
-                }
-
-                function playAlarm() {
-                  const now = audioContext.currentTime;
-                  playBeep(880, now, 0.15, 0.6);
-                  playBeep(660, now + 0.15, 0.15, 0.6);
-                  playBeep(880, now + 0.3, 0.15, 0.6);
-                  playBeep(660, now + 0.45, 0.15, 0.6);
-                  playBeep(1100, now + 0.6, 0.25, 0.7);
-                }
-
-                // Play immediately
-                playAlarm();
-
-                // Repeat 5 times
-                let count = 0;
-                const interval = setInterval(() => {
-                  count++;
-                  if (count >= 5) {
-                    clearInterval(interval);
-                    return;
-                  }
-                  playAlarm();
-                }, 1500);
-              }
-            });
-          } catch (soundError) {
-            console.error('Sound error:', soundError);
-          }
+          // Play alert sound using offscreen document
+          await playAlarmSound();
 
           // Show system notification (appears as native macOS/Windows notification)
           try {
