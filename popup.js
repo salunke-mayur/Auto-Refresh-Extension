@@ -75,7 +75,7 @@ document.addEventListener('DOMContentLoaded', () => {
       interval: interval
     });
 
-    await updateUI();
+    window.close();
   });
 
   stopBtn.addEventListener('click', async () => {
@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
       tabId: tab.id
     });
 
-    await updateUI();
+    window.close();
   });
 
   chrome.storage.onChanged.addListener((changes, namespace) => {
