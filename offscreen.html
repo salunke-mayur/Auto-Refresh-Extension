@@ -6,8 +6,16 @@
 </head>
 <body>
   <script>
+    // Create audio using data URI (a simple beep sound)
+    const audioDataUri = 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdH2LkZWQi4eCgIKFiIuNjo6OjYuJh4WDgYB/f4CAgoSGiIqMjY6Ojo6NjIqIhoSCgH9/f4GChYeJi42Oj4+Pjo2MioiGhIKAf3+AgIKEhoiKjI2Ojo6OjYyKiIaEgoB/f3+AgYOFh4mLjY6Pj4+OjYyKiIaEgoB/f4CAgYOFh4mLjI6Oj4+OjYyKiIaEgoB/f4CAgYOFh4mLjY6Pj4+OjYyKiIaEgoB/f4CAgYOFh4mLjI6Oj4+OjYyKiIaEgoB/f4CBg4WGiImKi4yMjIyLioiGhIOBgH+AgIGDhYaIiYqLjIyMjIuKiIaEg4GAgICBg4WGiImKi4yMjIyLioiGhIOBgH+AgYOEhYaHiImKioqKiYiHhoWEg4KBgICBgoOEhYaHiImKioqKiYiHhoWEg4KBgICBgoOEhYaHiImKioqKiYiHhoWEg4KBgICBgoOEhYaHiImKioqKiYiHhoWEg4KBgICBgoOEhYaHiImKioqKiYiHhoWEg4KBgICBgoOEhYaHiImKioqKiYiHhoWEg4KBgH+AgYKDhIWGh4iJioqKiomIh4aFhIOCgYCAgYKDhIWGh4iJioqKiomIh4aFhIOCgYCAgYKDhIWGh4iJioqKiomIh4aFhIOCgYB/gIGCg4SFhoeIiYqKioqJiIeGhYSDgoGAf4CBgoOEhYaHiImKioqKiYiHhoWEg4KBgH+AgYKDhIWGh4iJioqKiomIh4aFhIOCgYB/gIGCg4SFhoeIiYqKioqJiIeGhYSDgoGAf4CBgoOEhYaHiImKioqKiYiHhoWEg4KBgH+AgYKDhIWGh4iJioqKiomIh4aFhIOCgYB/gIGCg4SFhoeIiYqKioqJiIeGhYSDgoGAgICBgoOEhYaHiImKioqKiYiHhoWEg4KBgICAgYKDhIWGh4iJioqKiomIh4aFhIOCgYCAgIGCg4SFhoeIiYqKioqJiIeGhYSDgoGAgICBgoOEhYaHiImKioqKiYiHhoWEg4KBgICAgYKDhIWGh4iJioqKiomIh4aFhIOCgYCAgIGCg4SFhoeIiYqKioqJiIeGhYSDgoGAgICBgoOEhYaHiImKioqKiYiHhoWEg4KBgICAgYKDhIWGh4iJioqKiomIh4aFhIOCgYCAgIGCg4SFhoeIiYqKioqJiIeGhYSDgoGAgICBgoOEhYaHiImKioqKiYiHhoWEg4KBgICAgYKDhIWGh4iJioqKiomIh4aFhIOCgYCAgIGCg4SFhoeIiYqKioqJiIeGhYSDgoGAgICBgoOEhYaHiImKioqKiYiHhoWEg4KBgICAgYKDhIWGh4iJioqKiomIh4aFhIOCgYCAgIGCg4SFhoeIiYqKioqJiIeGhYSDgoGA';
+    
+    let audio = null;
+    let playCount = 0;
+    let playInterval = null;
+
     chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (message.action === 'playAlarm') {
+        console.log('Received playAlarm message');
         playAlarmSound();
         sendResponse({ success: true });
       }
@@ -15,49 +23,91 @@
     });
 
     function playAlarmSound() {
-      const audioContext = new AudioContext();
-
-      function playBeep(frequency, startTime, duration, volume = 0.7) {
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
-
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        oscillator.frequency.value = frequency;
-        oscillator.type = 'square';
-
-        gainNode.gain.setValueAtTime(volume, startTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
-
-        oscillator.start(startTime);
-        oscillator.stop(startTime + duration);
+      console.log('Playing alarm sound...');
+      playCount = 0;
+      
+      // Clear any existing interval
+      if (playInterval) {
+        clearInterval(playInterval);
       }
 
-      function playAlarmPattern() {
-        const now = audioContext.currentTime;
-        // Urgent siren pattern
-        playBeep(880, now, 0.15, 0.7);
-        playBeep(660, now + 0.15, 0.15, 0.7);
-        playBeep(880, now + 0.3, 0.15, 0.7);
-        playBeep(660, now + 0.45, 0.15, 0.7);
-        playBeep(1100, now + 0.6, 0.3, 0.8);
-      }
+      // Try Web Audio API first
+      try {
+        const audioContext = new AudioContext();
+        
+        // Resume audio context (required for Chrome)
+        audioContext.resume().then(() => {
+          playBeepPattern(audioContext);
+        });
 
-      // Play immediately
-      playAlarmPattern();
-
-      // Repeat 10 times over 15 seconds
-      let count = 0;
-      const interval = setInterval(() => {
-        count++;
-        if (count >= 10) {
-          clearInterval(interval);
-          return;
+        function playBeepPattern(ctx) {
+          const now = ctx.currentTime;
+          
+          // Create a loud beep pattern
+          for (let i = 0; i < 5; i++) {
+            createBeep(ctx, 800, now + i * 0.2, 0.15);
+          }
+          createBeep(ctx, 1000, now + 1, 0.3);
         }
-        playAlarmPattern();
-      }, 1500);
+
+        function createBeep(ctx, frequency, startTime, duration) {
+          const oscillator = ctx.createOscillator();
+          const gainNode = ctx.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(ctx.destination);
+          
+          oscillator.frequency.value = frequency;
+          oscillator.type = 'square';
+          
+          gainNode.gain.setValueAtTime(0.8, startTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+          
+          oscillator.start(startTime);
+          oscillator.stop(startTime + duration);
+        }
+
+        // Repeat pattern
+        playInterval = setInterval(() => {
+          playCount++;
+          if (playCount >= 10) {
+            clearInterval(playInterval);
+            return;
+          }
+          playBeepPattern(audioContext);
+        }, 1500);
+
+        console.log('Web Audio API playing');
+      } catch (error) {
+        console.error('Web Audio API failed:', error);
+        
+        // Fallback to HTML Audio
+        try {
+          audio = new Audio(audioDataUri);
+          audio.volume = 1.0;
+          audio.play().then(() => {
+            console.log('HTML Audio playing');
+          }).catch(e => {
+            console.error('HTML Audio failed:', e);
+          });
+          
+          // Repeat
+          playInterval = setInterval(() => {
+            playCount++;
+            if (playCount >= 10) {
+              clearInterval(playInterval);
+              return;
+            }
+            audio.currentTime = 0;
+            audio.play().catch(e => console.error('Repeat play failed:', e));
+          }, 1500);
+        } catch (audioError) {
+          console.error('All audio methods failed:', audioError);
+        }
+      }
     }
+
+    console.log('Offscreen document loaded and ready');
   </script>
 </body>
 </html>
