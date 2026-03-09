@@ -28,84 +28,29 @@
 <body>
   <h1>⟳ Auto Refresh</h1>
   <div class="status off" id="status">OFF</div>
-  
+
   <div class="row">
     <label>Interval (seconds)</label>
     <input type="number" id="interval" value="30" min="1" max="3600">
   </div>
-  
+
   <div class="row">
     <label>Alert if text missing</label>
     <input type="text" id="text" placeholder="Optional">
   </div>
-  
+
   <div class="checks">
     <label class="check"><input type="checkbox" id="sound" checked> 🔊 Sound</label>
     <label class="check"><input type="checkbox" id="popup" checked> 💬 Popup</label>
   </div>
-  
+
   <div class="btns">
     <button class="start" id="startBtn">Start</button>
     <button class="stop" id="stopBtn" disabled>Stop</button>
   </div>
-  
+
   <div class="info" id="info"></div>
 
-  <script>
-    const $ = id => document.getElementById(id);
-    let tabId, timer;
-
-    chrome.tabs.query({active: true, currentWindow: true}, tabs => {
-      tabId = tabs[0].id;
-      chrome.storage.local.get([`refresh_${tabId}`], data => {
-        const d = data[`refresh_${tabId}`];
-        if (d?.isActive) {
-          $('status').textContent = 'ON';
-          $('status').className = 'status on';
-          $('interval').value = d.interval;
-          $('interval').disabled = true;
-          $('text').value = d.searchText || '';
-          $('text').disabled = true;
-          $('sound').checked = d.notificationPrefs?.sound !== false;
-          $('popup').checked = d.notificationPrefs?.popup !== false;
-          $('sound').disabled = $('popup').disabled = true;
-          $('startBtn').disabled = true;
-          $('stopBtn').disabled = false;
-          countdown(d.nextRefresh);
-        }
-      });
-    });
-
-    function countdown(next) {
-      clearInterval(timer);
-      const tick = () => {
-        const s = Math.max(0, Math.ceil((next - Date.now()) / 1000));
-        $('info').textContent = s > 0 ? `Refreshing in ${s}s` : 'Refreshing...';
-      };
-      tick();
-      timer = setInterval(tick, 1000);
-    }
-
-    $('startBtn').onclick = () => {
-      const interval = parseInt($('interval').value);
-      if (isNaN(interval) || interval < 1 || interval > 3600) {
-        alert('Enter 1-3600 seconds');
-        return;
-      }
-      chrome.runtime.sendMessage({
-        action: 'start',
-        tabId,
-        interval,
-        searchText: $('text').value.trim(),
-        notificationPrefs: { sound: $('sound').checked, popup: $('popup').checked }
-      });
-      window.close();
-    };
-
-    $('stopBtn').onclick = () => {
-      chrome.runtime.sendMessage({ action: 'stop', tabId });
-      window.close();
-    };
-  </script>
+  <script src="popup.js"></script>
 </body>
 </html>

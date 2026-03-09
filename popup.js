@@ -1,134 +1,66 @@
-// Show UI immediately, then update with data
-const intervalInput = document.getElementById('interval');
-const searchTextInput = document.getElementById('searchText');
-const notifSoundCheckbox = document.getElementById('notifSound');
-const notifPopupCheckbox = document.getElementById('notifPopup');
-const startBtn = document.getElementById('startBtn');
-const stopBtn = document.getElementById('stopBtn');
-const statusEl = document.getElementById('status');
-const nextRefreshEl = document.getElementById('nextRefresh');
+const $ = id => document.getElementById(id);
+let tabId = null;
+let timer;
 
-let countdownInterval = null;
-let currentTabId = null;
+async function init() {
+  const tabs = await chrome.tabs.query({active: true, currentWindow: true});
+  tabId = tabs[0].id;
 
-// Cache the tab ID for faster subsequent access
-async function getCurrentTab() {
-  if (currentTabId) {
-    return { id: currentTabId };
-  }
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  currentTabId = tab.id;
-  return tab;
-}
-
-async function updateUI() {
-  const tab = await getCurrentTab();
-  const data = await chrome.storage.local.get([`refresh_${tab.id}`]);
-  const refreshData = data[`refresh_${tab.id}`];
-
-  if (refreshData && refreshData.isActive) {
-    statusEl.textContent = 'ON';
-    statusEl.className = 'status-on';
-    intervalInput.value = refreshData.interval;
-    intervalInput.disabled = true;
-    searchTextInput.value = refreshData.searchText || '';
-    searchTextInput.disabled = true;
-
-    // Set notification preferences
-    const prefs = refreshData.notificationPrefs || {};
-    notifSoundCheckbox.checked = prefs.sound !== false;
-    notifPopupCheckbox.checked = prefs.popup !== false;
-
-    // Disable checkboxes when running
-    notifSoundCheckbox.disabled = true;
-    notifPopupCheckbox.disabled = true;
-
-    startBtn.disabled = true;
-    stopBtn.disabled = false;
-    startCountdown(refreshData.nextRefresh);
-  } else {
-    statusEl.textContent = 'OFF';
-    statusEl.className = 'status-off';
-    intervalInput.disabled = false;
-    searchTextInput.disabled = false;
-
-    // Enable checkboxes when not running
-    notifSoundCheckbox.disabled = false;
-    notifPopupCheckbox.disabled = false;
-
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-    nextRefreshEl.textContent = '';
-    if (countdownInterval) {
-      clearInterval(countdownInterval);
-      countdownInterval = null;
-    }
+  const data = await chrome.storage.local.get([`refresh_${tabId}`]);
+  const d = data[`refresh_${tabId}`];
+  if (d?.isActive) {
+    $('status').textContent = 'ON';
+    $('status').className = 'status on';
+    $('interval').value = d.interval;
+    $('interval').disabled = true;
+    $('text').value = d.searchText || '';
+    $('text').disabled = true;
+    $('sound').checked = d.notificationPrefs?.sound !== false;
+    $('popup').checked = d.notificationPrefs?.popup !== false;
+    $('sound').disabled = $('popup').disabled = true;
+    $('startBtn').disabled = true;
+    $('stopBtn').disabled = false;
+    countdown(d.nextRefresh);
   }
 }
 
-function startCountdown(nextRefreshTime) {
-  if (countdownInterval) {
-    clearInterval(countdownInterval);
-  }
-
-  function updateCountdown() {
-    const now = Date.now();
-    const remaining = Math.max(0, Math.ceil((nextRefreshTime - now) / 1000));
-
-    if (remaining > 0) {
-      nextRefreshEl.textContent = `Next refresh in ${remaining}s`;
-    } else {
-      nextRefreshEl.textContent = 'Refreshing...';
-    }
-  }
-
-  updateCountdown();
-  countdownInterval = setInterval(updateCountdown, 1000);
+function countdown(next) {
+  clearInterval(timer);
+  const tick = () => {
+    const s = Math.max(0, Math.ceil((next - Date.now()) / 1000));
+    $('info').textContent = s > 0 ? `Refreshing in ${s}s` : 'Refreshing...';
+  };
+  tick();
+  timer = setInterval(tick, 1000);
 }
 
-startBtn.addEventListener('click', async () => {
-  const interval = parseInt(intervalInput.value, 10);
-
+$('startBtn').onclick = async () => {
+  if (!tabId) {
+    const tabs = await chrome.tabs.query({active: true, currentWindow: true});
+    tabId = tabs[0].id;
+  }
+  const interval = parseInt($('interval').value);
   if (isNaN(interval) || interval < 1 || interval > 3600) {
-    alert('Please enter a valid interval between 1 and 3600 seconds');
+    alert('Enter 1-3600 seconds');
     return;
   }
-
-  const searchText = searchTextInput.value.trim();
-  const tab = await getCurrentTab();
-
-  const notificationPrefs = {
-    sound: notifSoundCheckbox.checked,
-    popup: notifPopupCheckbox.checked
-  };
-
-  chrome.runtime.sendMessage({
+  await chrome.runtime.sendMessage({
     action: 'start',
-    tabId: tab.id,
-    interval: interval,
-    searchText: searchText,
-    notificationPrefs: notificationPrefs
+    tabId,
+    interval,
+    searchText: $('text').value.trim(),
+    notificationPrefs: { sound: $('sound').checked, popup: $('popup').checked }
   });
-
   window.close();
-});
+};
 
-stopBtn.addEventListener('click', async () => {
-  const tab = await getCurrentTab();
-
-  chrome.runtime.sendMessage({
-    action: 'stop',
-    tabId: tab.id
-  });
-
-  window.close();
-});
-
-chrome.storage.onChanged.addListener((changes, namespace) => {
-  if (namespace === 'local') {
-    updateUI();
+$('stopBtn').onclick = async () => {
+  if (!tabId) {
+    const tabs = await chrome.tabs.query({active: true, currentWindow: true});
+    tabId = tabs[0].id;
   }
-});
+  await chrome.runtime.sendMessage({ action: 'stop', tabId });
+  window.close();
+};
 
-// Initialize immediately
-updateUI();
+init();

@@ -112,16 +112,20 @@ async function updateBadge(tabId) {
       if (remaining >= 60) {
         badgeText = `${Math.floor(remaining / 60)}m`;
       } else {
-        badgeText = `${remaining}s`;
+        badgeText = `${remaining}`;
       }
 
       await chrome.action.setBadgeText({ text: badgeText, tabId: tabId });
-      await chrome.action.setBadgeBackgroundColor({ color: '#00c853', tabId: tabId });
+      await chrome.action.setBadgeBackgroundColor({ color: '#ffffff', tabId: tabId });
+      // Set text color if supported (Chrome 110+)
+      if (chrome.action.setBadgeTextColor) {
+        await chrome.action.setBadgeTextColor({ color: '#000000', tabId: tabId });
+      }
     } else {
       await chrome.action.setBadgeText({ text: '', tabId: tabId });
     }
   } catch (error) {
-    // Tab might not exist anymore
+    console.log('Badge update error (tab may not exist):', error.message);
   }
 }
 
