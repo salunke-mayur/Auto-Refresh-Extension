@@ -131,12 +131,10 @@ async function checkTextOnPage(tabId, searchText, notificationPrefs = {}) {
 
   console.log(`Checking for text "${searchText}" on tab ${tabId}`);
 
-  // Default all preferences to true if not specified
+  // Default preferences to true if not specified
   const prefs = {
     sound: notificationPrefs.sound !== false,
-    popup: notificationPrefs.popup !== false,
-    badge: notificationPrefs.badge !== false,
-    title: notificationPrefs.title !== false
+    popup: notificationPrefs.popup !== false
   };
 
   try {
@@ -185,40 +183,9 @@ async function checkTextOnPage(tabId, searchText, notificationPrefs = {}) {
             }
           }
 
-          // Update badge to show warning (if enabled)
-          if (prefs.badge) {
-            await chrome.action.setBadgeText({ text: '!', tabId: tabId });
-            await chrome.action.setBadgeBackgroundColor({ color: '#ff5252', tabId: tabId });
-          }
-
-          // Flash the tab title for visibility (if enabled)
-          if (prefs.title) {
-            try {
-              await chrome.scripting.executeScript({
-                target: { tabId: tabId },
-                func: (text) => {
-                  const originalTitle = document.title;
-                  let flashCount = 0;
-                  const maxFlashes = 60;
-
-                  const flashInterval = setInterval(() => {
-                    if (flashCount >= maxFlashes) {
-                      document.title = originalTitle;
-                      clearInterval(flashInterval);
-                      return;
-                    }
-                    document.title = flashCount % 2 === 0
-                      ? `🚨 TEXT NOT FOUND: "${text}"`
-                      : `⚠️ CHECK NOW!`;
-                    flashCount++;
-                  }, 500);
-                },
-                args: [searchText]
-              });
-            } catch (flashError) {
-              console.error('Flash title error:', flashError);
-            }
-          }
+          // Always update badge to show warning
+          await chrome.action.setBadgeText({ text: '!', tabId: tabId });
+          await chrome.action.setBadgeBackgroundColor({ color: '#ff5252', tabId: tabId });
         }
     }
   } catch (error) {

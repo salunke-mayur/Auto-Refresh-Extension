@@ -3,8 +3,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const searchTextInput = document.getElementById('searchText');
   const notifSoundCheckbox = document.getElementById('notifSound');
   const notifPopupCheckbox = document.getElementById('notifPopup');
-  const notifBadgeCheckbox = document.getElementById('notifBadge');
-  const notifTitleCheckbox = document.getElementById('notifTitle');
   const startBtn = document.getElementById('startBtn');
   const stopBtn = document.getElementById('stopBtn');
   const statusEl = document.getElementById('status');
@@ -34,14 +32,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const prefs = refreshData.notificationPrefs || {};
       notifSoundCheckbox.checked = prefs.sound !== false;
       notifPopupCheckbox.checked = prefs.popup !== false;
-      notifBadgeCheckbox.checked = prefs.badge !== false;
-      notifTitleCheckbox.checked = prefs.title !== false;
 
       // Disable checkboxes when running
       notifSoundCheckbox.disabled = true;
       notifPopupCheckbox.disabled = true;
-      notifBadgeCheckbox.disabled = true;
-      notifTitleCheckbox.disabled = true;
 
       startBtn.disabled = true;
       stopBtn.disabled = false;
@@ -55,8 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
       // Enable checkboxes when not running
       notifSoundCheckbox.disabled = false;
       notifPopupCheckbox.disabled = false;
-      notifBadgeCheckbox.disabled = false;
-      notifTitleCheckbox.disabled = false;
 
       startBtn.disabled = false;
       stopBtn.disabled = true;
@@ -101,9 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const notificationPrefs = {
       sound: notifSoundCheckbox.checked,
-      popup: notifPopupCheckbox.checked,
-      badge: notifBadgeCheckbox.checked,
-      title: notifTitleCheckbox.checked
+      popup: notifPopupCheckbox.checked
     };
 
     await chrome.runtime.sendMessage({
