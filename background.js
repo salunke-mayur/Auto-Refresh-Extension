@@ -87,6 +87,58 @@ async function checkTextOnPage(tabId, searchText) {
           // Stop the auto-refresh
           await stopRefresh(tabId);
 
+          // Play alert sound on the page
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId: tabId },
+              func: () => {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                function playBeep(frequency, startTime, duration, volume = 0.5) {
+                  const oscillator = audioContext.createOscillator();
+                  const gainNode = audioContext.createGain();
+                  
+                  oscillator.connect(gainNode);
+                  gainNode.connect(audioContext.destination);
+                  
+                  oscillator.frequency.value = frequency;
+                  oscillator.type = 'square';
+                  
+                  gainNode.gain.setValueAtTime(volume, startTime);
+                  gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+                  
+                  oscillator.start(startTime);
+                  oscillator.stop(startTime + duration);
+                }
+
+                function playAlarm() {
+                  const now = audioContext.currentTime;
+                  playBeep(880, now, 0.15, 0.6);
+                  playBeep(660, now + 0.15, 0.15, 0.6);
+                  playBeep(880, now + 0.3, 0.15, 0.6);
+                  playBeep(660, now + 0.45, 0.15, 0.6);
+                  playBeep(1100, now + 0.6, 0.25, 0.7);
+                }
+
+                // Play immediately
+                playAlarm();
+
+                // Repeat 5 times
+                let count = 0;
+                const interval = setInterval(() => {
+                  count++;
+                  if (count >= 5) {
+                    clearInterval(interval);
+                    return;
+                  }
+                  playAlarm();
+                }, 1500);
+              }
+            });
+          } catch (soundError) {
+            console.error('Sound error:', soundError);
+          }
+
           // Show system notification (appears as native macOS/Windows notification)
           try {
             await chrome.notifications.create(`text-missing-${tabId}-${Date.now()}`, {
