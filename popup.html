@@ -4,6 +4,12 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Auto Refresh</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; background: #1a1a2e; min-width: 300px; color: #fff; }
+    .container { padding: 16px; }
+    h1 { text-align: center; font-size: 18px; margin-bottom: 16px; color: #00d4ff; }
+  </style>
   <link rel="stylesheet" href="popup.css">
 </head>
 <body>
@@ -17,13 +23,12 @@
 
     <div class="input-group">
       <label for="interval">Refresh Interval (seconds)</label>
-      <input type="number" id="interval" min="1" max="3600" value="30" placeholder="Enter seconds">
+      <input type="number" id="interval" min="1" max="3600" value="30">
     </div>
 
     <div class="input-group">
       <label for="searchText">Alert if text is missing (optional)</label>
       <input type="text" id="searchText" placeholder="Enter text to monitor">
-      <span class="input-hint">Get notified if this text disappears from the page</span>
     </div>
 
     <div class="notification-options">
@@ -32,12 +37,12 @@
         <label class="checkbox-label">
           <input type="checkbox" id="notifSound" checked>
           <span class="checkmark"></span>
-          🔊 Alarm Sound
+          🔊 Sound
         </label>
         <label class="checkbox-label">
           <input type="checkbox" id="notifPopup" checked>
           <span class="checkmark"></span>
-          💬 System Notification
+          💬 Popup
         </label>
       </div>
     </div>
