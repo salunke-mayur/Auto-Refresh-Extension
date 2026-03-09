@@ -35,7 +35,12 @@ async function setupOffscreenDocument() {
   creatingOffscreen = false;
 }
 
-async function playAlarmSound() {
+async function playAlarmSound(tabId) {
+  // Mark alarm as active
+  if (tabId) {
+    await chrome.storage.local.set({ [`alarm_active_${tabId}`]: true });
+  }
+  
   await setupOffscreenDocument();
   try {
     await chrome.runtime.sendMessage({ action: 'playAlarm' });
@@ -44,7 +49,12 @@ async function playAlarmSound() {
   }
 }
 
-async function stopAlarmSound() {
+async function stopAlarmSound(tabId) {
+  // Mark alarm as inactive
+  if (tabId) {
+    await chrome.storage.local.remove(`alarm_active_${tabId}`);
+  }
+  
   try {
     await chrome.runtime.sendMessage({ action: 'stopAlarm' });
   } catch (error) {
@@ -77,6 +87,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   } else if (message.action === 'stop') {
     stopRefresh(message.tabId).then(() => {
+      sendResponse({ success: true });
+    });
+    return true;
+  } else if (message.action === 'stopAlarm') {
+    stopAlarmSound(message.tabId).then(() => {
       sendResponse({ success: true });
     });
     return true;
@@ -162,7 +177,7 @@ async function checkTextOnPage(tabId, searchText, notificationPrefs = {}) {
 
           // Play alert sound using offscreen document (if enabled)
           if (prefs.sound) {
-            await playAlarmSound();
+            await playAlarmSound(tabId);
           }
 
           // Show system notification (if enabled)

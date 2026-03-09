@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const notifPopupCheckbox = document.getElementById('notifPopup');
   const startBtn = document.getElementById('startBtn');
   const stopBtn = document.getElementById('stopBtn');
+  const stopAlarmBtn = document.getElementById('stopAlarmBtn');
   const statusEl = document.getElementById('status');
   const nextRefreshEl = document.getElementById('nextRefresh');
 
@@ -13,6 +14,18 @@ document.addEventListener('DOMContentLoaded', () => {
   async function getCurrentTab() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     return tab;
+  }
+
+  async function checkAlarmStatus() {
+    const tab = await getCurrentTab();
+    const data = await chrome.storage.local.get([`alarm_active_${tab.id}`]);
+    const alarmActive = data[`alarm_active_${tab.id}`];
+    
+    if (alarmActive) {
+      stopAlarmBtn.style.display = 'block';
+    } else {
+      stopAlarmBtn.style.display = 'none';
+    }
   }
 
   async function updateUI() {
@@ -58,6 +71,9 @@ document.addEventListener('DOMContentLoaded', () => {
         countdownInterval = null;
       }
     }
+
+    // Check if alarm is active
+    await checkAlarmStatus();
   }
 
   function startCountdown(nextRefreshTime) {
@@ -118,6 +134,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Small delay to ensure storage is updated before closing
     setTimeout(() => window.close(), 100);
+  });
+
+  stopAlarmBtn.addEventListener('click', async () => {
+    const tab = await getCurrentTab();
+
+    await chrome.runtime.sendMessage({
+      action: 'stopAlarm',
+      tabId: tab.id
+    });
+
+    stopAlarmBtn.style.display = 'none';
   });
 
   chrome.storage.onChanged.addListener((changes, namespace) => {
