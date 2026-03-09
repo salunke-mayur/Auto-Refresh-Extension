@@ -1,5 +1,6 @@
 const activeRefreshers = new Map();
 const badgeIntervals = new Map();
+const pendingTextChecks = new Map();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'start') {
@@ -61,40 +62,78 @@ function stopBadgeCountdown(tabId) {
 async function checkTextOnPage(tabId, searchText) {
   if (!searchText) return;
 
+  console.log(`Checking for text "${searchText}" on tab ${tabId}`);
+
   try {
     const results = await chrome.scripting.executeScript({
       target: { tabId: tabId },
       func: (text) => {
-        return document.body.innerText.includes(text);
+        const bodyText = document.body ? document.body.innerText : '';
+        return bodyText.toLowerCase().includes(text.toLowerCase());
       },
       args: [searchText]
     });
 
+    console.log('Script execution results:', results);
+
     if (results && results[0]) {
       const textFound = results[0].result;
+      console.log(`Text found: ${textFound}`);
 
       if (!textFound) {
         const tab = await chrome.tabs.get(tabId);
         const pageTitle = tab.title || 'the page';
 
-        chrome.notifications.create(`text-missing-${tabId}-${Date.now()}`, {
-          type: 'basic',
-          iconUrl: 'icons/icon128.png',
-          title: '⚠️ Text Not Found!',
-          message: `"${searchText}" is missing from ${pageTitle}`,
-          priority: 2
-        });
+        // Show Chrome notification
+        try {
+          await chrome.notifications.create(`text-missing-${tabId}-${Date.now()}`, {
+            type: 'basic',
+            iconUrl: 'icons/icon128.png',
+            title: 'Text Not Found!',
+            message: `"${searchText}" is missing from ${pageTitle}`,
+            priority: 2,
+            requireInteraction: true
+          });
+          console.log('Notification created successfully');
+        } catch (notifError) {
+          console.error('Notification error:', notifError);
+        }
 
+        // Also show an alert on the page as backup
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tabId },
+            func: (text) => {
+              alert(`⚠️ Auto Refresh Alert!\n\nThe text "${text}" was NOT found on this page!`);
+            },
+            args: [searchText]
+          });
+        } catch (alertError) {
+          console.error('Alert error:', alertError);
+        }
+
+        // Update badge to show warning
         await chrome.action.setBadgeText({ text: '!', tabId: tabId });
         await chrome.action.setBadgeBackgroundColor({ color: '#ff5252', tabId: tabId });
 
-        setTimeout(() => updateBadge(tabId), 3000);
+        setTimeout(() => updateBadge(tabId), 5000);
       }
     }
   } catch (error) {
     console.error('Error checking text on page:', error);
   }
 }
+
+// Listen for tab updates to check text after page loads
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && pendingTextChecks.has(tabId)) {
+    const searchText = pendingTextChecks.get(tabId);
+    pendingTextChecks.delete(tabId);
+    
+    // Small delay to ensure DOM is ready
+    setTimeout(() => checkTextOnPage(tabId, searchText), 500);
+  }
+});
 
 async function startRefresh(tabId, intervalSeconds, searchText = '') {
   await stopRefresh(tabId);
@@ -130,6 +169,7 @@ async function stopRefresh(tabId) {
   await chrome.alarms.clear(alarmName);
   await chrome.storage.local.remove(`refresh_${tabId}`);
   activeRefreshers.delete(tabId);
+  pendingTextChecks.delete(tabId);
 
   stopBadgeCountdown(tabId);
   try {
@@ -149,6 +189,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
         const data = await chrome.storage.local.get([`refresh_${tabId}`]);
         const refreshData = data[`refresh_${tabId}`];
 
+        // Schedule text check for after page loads
+        if (refreshData && refreshData.searchText) {
+          pendingTextChecks.set(tabId, refreshData.searchText);
+        }
+
         await chrome.tabs.reload(tabId);
 
         if (refreshData && refreshData.isActive) {
@@ -159,13 +204,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
               nextRefresh: nextRefresh
             }
           });
-
-          if (refreshData.searchText) {
-            setTimeout(() => checkTextOnPage(tabId, refreshData.searchText), 2000);
-          }
         }
       }
     } catch (error) {
+      console.error('Alarm error:', error);
       stopRefresh(tabId);
     }
   }
