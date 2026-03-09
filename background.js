@@ -44,6 +44,31 @@ async function playAlarmSound() {
   }
 }
 
+async function stopAlarmSound() {
+  try {
+    await chrome.runtime.sendMessage({ action: 'stopAlarm' });
+  } catch (error) {
+    console.error('Error stopping alarm:', error);
+  }
+}
+
+// Stop alarm when notification is clicked
+chrome.notifications.onClicked.addListener(async (notificationId) => {
+  console.log('Notification clicked:', notificationId);
+  if (notificationId.startsWith('text-missing-')) {
+    await stopAlarmSound();
+    chrome.notifications.clear(notificationId);
+  }
+});
+
+// Stop alarm when notification is closed
+chrome.notifications.onClosed.addListener(async (notificationId) => {
+  console.log('Notification closed:', notificationId);
+  if (notificationId.startsWith('text-missing-')) {
+    await stopAlarmSound();
+  }
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'start') {
     startRefresh(message.tabId, message.interval, message.searchText).then(() => {

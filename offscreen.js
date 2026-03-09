@@ -11,9 +11,26 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     console.log('Received playAlarm message');
     playAlarmSound();
     sendResponse({ success: true });
+  } else if (message.action === 'stopAlarm') {
+    console.log('Received stopAlarm message');
+    stopAlarmSound();
+    sendResponse({ success: true });
   }
   return true;
 });
+
+function stopAlarmSound() {
+  console.log('Stopping alarm sound...');
+  if (playInterval) {
+    clearInterval(playInterval);
+    playInterval = null;
+  }
+  if (audio) {
+    audio.pause();
+    audio.currentTime = 0;
+  }
+  playCount = 10; // Prevent any more plays
+}
 
 function playAlarmSound() {
   console.log('Playing alarm sound...');
