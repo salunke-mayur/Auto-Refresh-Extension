@@ -164,7 +164,7 @@ async function checkTextOnPage(tabId, searchText, notificationPrefs = {}, retryC
           return { found: false, pageReady: false };
         }
         const bodyText = document.body ? document.body.innerText : '';
-        return { 
+        return {
           found: bodyText.toLowerCase().includes(text.toLowerCase()),
           pageReady: true,
           bodyLength: bodyText.length
