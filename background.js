@@ -71,7 +71,7 @@ chrome.notifications.onClosed.addListener(async (notificationId) => {
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'start') {
-    startRefresh(message.tabId, message.interval, message.searchText).then(() => {
+    startRefresh(message.tabId, message.interval, message.searchText, message.notificationPrefs).then(() => {
       sendResponse({ success: true });
     });
     return true;
@@ -126,10 +126,18 @@ function stopBadgeCountdown(tabId) {
   }
 }
 
-async function checkTextOnPage(tabId, searchText) {
+async function checkTextOnPage(tabId, searchText, notificationPrefs = {}) {
   if (!searchText) return;
 
   console.log(`Checking for text "${searchText}" on tab ${tabId}`);
+
+  // Default all preferences to true if not specified
+  const prefs = {
+    sound: notificationPrefs.sound !== false,
+    popup: notificationPrefs.popup !== false,
+    badge: notificationPrefs.badge !== false,
+    title: notificationPrefs.title !== false
+  };
 
   try {
     const results = await chrome.scripting.executeScript({
@@ -154,54 +162,62 @@ async function checkTextOnPage(tabId, searchText) {
           // Stop the auto-refresh
           await stopRefresh(tabId);
 
-          // Play alert sound using offscreen document
-          await playAlarmSound();
-
-          // Show system notification (appears as native macOS/Windows notification)
-          try {
-            await chrome.notifications.create(`text-missing-${tabId}-${Date.now()}`, {
-              type: 'basic',
-              iconUrl: 'icons/icon128.png',
-              title: '🚨 AUTO REFRESH ALERT',
-              message: `Text "${searchText}" is MISSING from: ${pageTitle}\n\nAuto-refresh has been stopped.`,
-              priority: 2,
-              requireInteraction: true,
-              silent: false
-            });
-            console.log('System notification created successfully');
-          } catch (notifError) {
-            console.error('Notification error:', notifError);
+          // Play alert sound using offscreen document (if enabled)
+          if (prefs.sound) {
+            await playAlarmSound();
           }
 
-          // Update badge to show warning
-          await chrome.action.setBadgeText({ text: '!', tabId: tabId });
-          await chrome.action.setBadgeBackgroundColor({ color: '#ff5252', tabId: tabId });
+          // Show system notification (if enabled)
+          if (prefs.popup) {
+            try {
+              await chrome.notifications.create(`text-missing-${tabId}-${Date.now()}`, {
+                type: 'basic',
+                iconUrl: 'icons/icon128.png',
+                title: '🚨 AUTO REFRESH ALERT',
+                message: `Text "${searchText}" is MISSING from: ${pageTitle}\n\nAuto-refresh has been stopped.`,
+                priority: 2,
+                requireInteraction: true,
+                silent: false
+              });
+              console.log('System notification created successfully');
+            } catch (notifError) {
+              console.error('Notification error:', notifError);
+            }
+          }
 
-          // Flash the tab title for visibility
-          try {
-            await chrome.scripting.executeScript({
-              target: { tabId: tabId },
-              func: (text) => {
-                const originalTitle = document.title;
-                let flashCount = 0;
-                const maxFlashes = 60;
+          // Update badge to show warning (if enabled)
+          if (prefs.badge) {
+            await chrome.action.setBadgeText({ text: '!', tabId: tabId });
+            await chrome.action.setBadgeBackgroundColor({ color: '#ff5252', tabId: tabId });
+          }
 
-                const flashInterval = setInterval(() => {
-                  if (flashCount >= maxFlashes) {
-                    document.title = originalTitle;
-                    clearInterval(flashInterval);
-                    return;
-                  }
-                  document.title = flashCount % 2 === 0
-                    ? `🚨 TEXT NOT FOUND: "${text}"`
-                    : `⚠️ CHECK NOW!`;
-                  flashCount++;
-                }, 500);
-              },
-              args: [searchText]
-            });
-          } catch (flashError) {
-            console.error('Flash title error:', flashError);
+          // Flash the tab title for visibility (if enabled)
+          if (prefs.title) {
+            try {
+              await chrome.scripting.executeScript({
+                target: { tabId: tabId },
+                func: (text) => {
+                  const originalTitle = document.title;
+                  let flashCount = 0;
+                  const maxFlashes = 60;
+
+                  const flashInterval = setInterval(() => {
+                    if (flashCount >= maxFlashes) {
+                      document.title = originalTitle;
+                      clearInterval(flashInterval);
+                      return;
+                    }
+                    document.title = flashCount % 2 === 0
+                      ? `🚨 TEXT NOT FOUND: "${text}"`
+                      : `⚠️ CHECK NOW!`;
+                    flashCount++;
+                  }, 500);
+                },
+                args: [searchText]
+              });
+            } catch (flashError) {
+              console.error('Flash title error:', flashError);
+            }
           }
         }
     }
@@ -213,15 +229,20 @@ async function checkTextOnPage(tabId, searchText) {
 // Listen for tab updates to check text after page loads
 chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && pendingTextChecks.has(tabId)) {
-    const searchText = pendingTextChecks.get(tabId);
+    const checkData = pendingTextChecks.get(tabId);
     pendingTextChecks.delete(tabId);
 
+    // Get the notification preferences from storage
+    const data = await chrome.storage.local.get([`refresh_${tabId}`]);
+    const refreshData = data[`refresh_${tabId}`];
+    const notificationPrefs = refreshData?.notificationPrefs || {};
+
     // Small delay to ensure DOM is ready
-    setTimeout(() => checkTextOnPage(tabId, searchText), 500);
+    setTimeout(() => checkTextOnPage(tabId, checkData, notificationPrefs), 500);
   }
 });
 
-async function startRefresh(tabId, intervalSeconds, searchText = '') {
+async function startRefresh(tabId, intervalSeconds, searchText = '', notificationPrefs = {}) {
   await stopRefresh(tabId);
 
   const intervalMs = intervalSeconds * 1000;
@@ -232,7 +253,8 @@ async function startRefresh(tabId, intervalSeconds, searchText = '') {
       isActive: true,
       interval: intervalSeconds,
       nextRefresh: nextRefresh,
-      searchText: searchText
+      searchText: searchText,
+      notificationPrefs: notificationPrefs
     }
   });
 
@@ -244,7 +266,8 @@ async function startRefresh(tabId, intervalSeconds, searchText = '') {
   activeRefreshers.set(tabId, {
     interval: intervalSeconds,
     alarmName: alarmName,
-    searchText: searchText
+    searchText: searchText,
+    notificationPrefs: notificationPrefs
   });
 
   startBadgeCountdown(tabId);

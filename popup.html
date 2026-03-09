@@ -26,6 +26,32 @@
       <span class="input-hint">Get notified if this text disappears from the page</span>
     </div>
 
+    <div class="notification-options">
+      <label class="section-label">Notification Types</label>
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="notifSound" checked>
+          <span class="checkmark"></span>
+          🔊 Alarm Sound
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="notifPopup" checked>
+          <span class="checkmark"></span>
+          💬 System Notification
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="notifBadge" checked>
+          <span class="checkmark"></span>
+          🔴 Badge Alert
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="notifTitle" checked>
+          <span class="checkmark"></span>
+          📑 Flash Tab Title
+        </label>
+      </div>
+    </div>
+
     <div class="button-group">
       <button id="startBtn" class="btn btn-start">Start</button>
       <button id="stopBtn" class="btn btn-stop" disabled>Stop</button>

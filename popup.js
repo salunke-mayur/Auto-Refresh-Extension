@@ -1,6 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
   const intervalInput = document.getElementById('interval');
   const searchTextInput = document.getElementById('searchText');
+  const notifSoundCheckbox = document.getElementById('notifSound');
+  const notifPopupCheckbox = document.getElementById('notifPopup');
+  const notifBadgeCheckbox = document.getElementById('notifBadge');
+  const notifTitleCheckbox = document.getElementById('notifTitle');
   const startBtn = document.getElementById('startBtn');
   const stopBtn = document.getElementById('stopBtn');
   const statusEl = document.getElementById('status');
@@ -25,6 +29,20 @@ document.addEventListener('DOMContentLoaded', () => {
       intervalInput.disabled = true;
       searchTextInput.value = refreshData.searchText || '';
       searchTextInput.disabled = true;
+
+      // Set notification preferences
+      const prefs = refreshData.notificationPrefs || {};
+      notifSoundCheckbox.checked = prefs.sound !== false;
+      notifPopupCheckbox.checked = prefs.popup !== false;
+      notifBadgeCheckbox.checked = prefs.badge !== false;
+      notifTitleCheckbox.checked = prefs.title !== false;
+
+      // Disable checkboxes when running
+      notifSoundCheckbox.disabled = true;
+      notifPopupCheckbox.disabled = true;
+      notifBadgeCheckbox.disabled = true;
+      notifTitleCheckbox.disabled = true;
+
       startBtn.disabled = true;
       stopBtn.disabled = false;
       startCountdown(refreshData.nextRefresh);
@@ -33,6 +51,13 @@ document.addEventListener('DOMContentLoaded', () => {
       statusEl.className = 'status-off';
       intervalInput.disabled = false;
       searchTextInput.disabled = false;
+
+      // Enable checkboxes when not running
+      notifSoundCheckbox.disabled = false;
+      notifPopupCheckbox.disabled = false;
+      notifBadgeCheckbox.disabled = false;
+      notifTitleCheckbox.disabled = false;
+
       startBtn.disabled = false;
       stopBtn.disabled = true;
       nextRefreshEl.textContent = '';
@@ -74,11 +99,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const searchText = searchTextInput.value.trim();
     const tab = await getCurrentTab();
 
+    const notificationPrefs = {
+      sound: notifSoundCheckbox.checked,
+      popup: notifPopupCheckbox.checked,
+      badge: notifBadgeCheckbox.checked,
+      title: notifTitleCheckbox.checked
+    };
+
     await chrome.runtime.sendMessage({
       action: 'start',
       tabId: tab.id,
       interval: interval,
-      searchText: searchText
+      searchText: searchText,
+      notificationPrefs: notificationPrefs
     });
 
     // Small delay to ensure storage is updated before closing

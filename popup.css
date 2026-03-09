@@ -161,3 +161,70 @@ h1 {
   margin-top: 6px;
   font-style: italic;
 }
+
+.notification-options {
+  margin-bottom: 20px;
+}
+
+.section-label {
+  display: block;
+  font-size: 12px;
+  color: #a0a0a0;
+  margin-bottom: 10px;
+}
+
+.checkbox-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: background 0.2s ease;
+}
+
+.checkbox-label:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.checkbox-label input[type="checkbox"] {
+  display: none;
+}
+
+.checkbox-label .checkmark {
+  width: 16px;
+  height: 16px;
+  border: 2px solid #3a3a5a;
+  border-radius: 4px;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkmark {
+  background: #00d4ff;
+  border-color: #00d4ff;
+}
+
+.checkbox-label input[type="checkbox"]:checked + .checkmark::after {
+  content: '';
+  position: absolute;
+  left: 4px;
+  top: 1px;
+  width: 4px;
+  height: 8px;
+  border: solid #1a1a2e;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox-label input[type="checkbox"]:disabled + .checkmark {
+  opacity: 0.5;
+}
