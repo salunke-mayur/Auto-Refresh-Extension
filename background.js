@@ -81,43 +81,44 @@ async function checkTextOnPage(tabId, searchText) {
       console.log(`Text found: ${textFound}`);
 
       if (!textFound) {
-        const tab = await chrome.tabs.get(tabId);
-        const pageTitle = tab.title || 'the page';
+          const tab = await chrome.tabs.get(tabId);
+          const pageTitle = tab.title || 'the page';
 
-        // Show Chrome notification
-        try {
-          await chrome.notifications.create(`text-missing-${tabId}-${Date.now()}`, {
-            type: 'basic',
-            iconUrl: 'icons/icon128.png',
-            title: 'Text Not Found!',
-            message: `"${searchText}" is missing from ${pageTitle}`,
-            priority: 2,
-            requireInteraction: true
-          });
-          console.log('Notification created successfully');
-        } catch (notifError) {
-          console.error('Notification error:', notifError);
+          // Stop the auto-refresh
+          await stopRefresh(tabId);
+
+          // Show Chrome notification
+          try {
+            await chrome.notifications.create(`text-missing-${tabId}-${Date.now()}`, {
+              type: 'basic',
+              iconUrl: 'icons/icon128.png',
+              title: 'Text Not Found - Refresh Stopped!',
+              message: `"${searchText}" is missing from ${pageTitle}. Auto-refresh has been stopped.`,
+              priority: 2,
+              requireInteraction: true
+            });
+            console.log('Notification created successfully');
+          } catch (notifError) {
+            console.error('Notification error:', notifError);
+          }
+
+          // Also show an alert on the page as backup
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId: tabId },
+              func: (text) => {
+                alert(`⚠️ Auto Refresh Alert!\n\nThe text "${text}" was NOT found on this page!\n\nAuto-refresh has been stopped.`);
+              },
+              args: [searchText]
+            });
+          } catch (alertError) {
+            console.error('Alert error:', alertError);
+          }
+
+          // Update badge to show warning (keep it since refresh is stopped)
+          await chrome.action.setBadgeText({ text: '!', tabId: tabId });
+          await chrome.action.setBadgeBackgroundColor({ color: '#ff5252', tabId: tabId });
         }
-
-        // Also show an alert on the page as backup
-        try {
-          await chrome.scripting.executeScript({
-            target: { tabId: tabId },
-            func: (text) => {
-              alert(`⚠️ Auto Refresh Alert!\n\nThe text "${text}" was NOT found on this page!`);
-            },
-            args: [searchText]
-          });
-        } catch (alertError) {
-          console.error('Alert error:', alertError);
-        }
-
-        // Update badge to show warning
-        await chrome.action.setBadgeText({ text: '!', tabId: tabId });
-        await chrome.action.setBadgeBackgroundColor({ color: '#ff5252', tabId: tabId });
-
-        setTimeout(() => updateBadge(tabId), 5000);
-      }
     }
   } catch (error) {
     console.error('Error checking text on page:', error);
@@ -129,7 +130,7 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete' && pendingTextChecks.has(tabId)) {
     const searchText = pendingTextChecks.get(tabId);
     pendingTextChecks.delete(tabId);
-    
+
     // Small delay to ensure DOM is ready
     setTimeout(() => checkTextOnPage(tabId, searchText), 500);
   }
