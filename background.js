@@ -5,23 +5,23 @@ let creatingOffscreen = false;
 
 async function setupOffscreenDocument() {
   const offscreenUrl = chrome.runtime.getURL('offscreen.html');
-  
+
   // Check if offscreen document already exists
   const existingContexts = await chrome.runtime.getContexts({
     contextTypes: ['OFFSCREEN_DOCUMENT'],
     documentUrls: [offscreenUrl]
   });
-  
+
   if (existingContexts.length > 0) {
     return; // Already exists
   }
-  
+
   // Prevent race condition
   if (creatingOffscreen) {
     await new Promise(resolve => setTimeout(resolve, 100));
     return setupOffscreenDocument();
   }
-  
+
   creatingOffscreen = true;
   try {
     await chrome.offscreen.createDocument({
