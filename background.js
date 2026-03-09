@@ -87,12 +87,51 @@ async function checkTextOnPage(tabId, searchText) {
           // Stop the auto-refresh
           await stopRefresh(tabId);
 
-          // Show Chrome notification
+          // Open bold popup alert window
+          const alertUrl = chrome.runtime.getURL('alert.html') + 
+            `?text=${encodeURIComponent(searchText)}&title=${encodeURIComponent(pageTitle)}`;
+          
+          chrome.windows.create({
+            url: alertUrl,
+            type: 'popup',
+            width: 550,
+            height: 500,
+            focused: true
+          });
+
+          // Flash the original tab's title to grab attention
+          try {
+            await chrome.scripting.executeScript({
+              target: { tabId: tabId },
+              func: (text) => {
+                const originalTitle = document.title;
+                let flashCount = 0;
+                const maxFlashes = 30; // Flash for 15 seconds
+                
+                const flashInterval = setInterval(() => {
+                  if (flashCount >= maxFlashes) {
+                    document.title = originalTitle;
+                    clearInterval(flashInterval);
+                    return;
+                  }
+                  document.title = flashCount % 2 === 0 
+                    ? `🚨 TEXT NOT FOUND: "${text}"` 
+                    : `⚠️ CHECK NOW!`;
+                  flashCount++;
+                }, 500);
+              },
+              args: [searchText]
+            });
+          } catch (flashError) {
+            console.error('Flash title error:', flashError);
+          }
+
+          // Show Chrome notification as backup
           try {
             await chrome.notifications.create(`text-missing-${tabId}-${Date.now()}`, {
               type: 'basic',
               iconUrl: 'icons/icon128.png',
-              title: 'Text Not Found - Refresh Stopped!',
+              title: '🚨 Text Not Found - Refresh Stopped!',
               message: `"${searchText}" is missing from ${pageTitle}. Auto-refresh has been stopped.`,
               priority: 2,
               requireInteraction: true
@@ -100,19 +139,6 @@ async function checkTextOnPage(tabId, searchText) {
             console.log('Notification created successfully');
           } catch (notifError) {
             console.error('Notification error:', notifError);
-          }
-
-          // Also show an alert on the page as backup
-          try {
-            await chrome.scripting.executeScript({
-              target: { tabId: tabId },
-              func: (text) => {
-                alert(`⚠️ Auto Refresh Alert!\n\nThe text "${text}" was NOT found on this page!\n\nAuto-refresh has been stopped.`);
-              },
-              args: [searchText]
-            });
-          } catch (alertError) {
-            console.error('Alert error:', alertError);
           }
 
           // Update badge to show warning (keep it since refresh is stopped)

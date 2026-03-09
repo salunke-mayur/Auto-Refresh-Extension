@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚠️ ALERT - Text Not Found!</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #ff1744 0%, #d50000 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      animation: pulse-bg 1s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulse-bg {
+      0% { background: linear-gradient(135deg, #ff1744 0%, #d50000 100%); }
+      100% { background: linear-gradient(135deg, #ff5252 0%, #ff1744 100%); }
+    }
+
+    .alert-container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px 50px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 500px;
+      animation: bounce-in 0.5s ease-out;
+    }
+
+    @keyframes bounce-in {
+      0% { transform: scale(0.5); opacity: 0; }
+      70% { transform: scale(1.05); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    .alert-icon {
+      font-size: 80px;
+      margin-bottom: 20px;
+      animation: shake 0.5s ease-in-out infinite;
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-5px) rotate(-5deg); }
+      75% { transform: translateX(5px) rotate(5deg); }
+    }
+
+    h1 {
+      color: #d50000;
+      font-size: 32px;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+
+    .message {
+      color: #333;
+      font-size: 18px;
+      line-height: 1.6;
+      margin-bottom: 10px;
+    }
+
+    .search-text {
+      background: #ffebee;
+      color: #c62828;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-weight: bold;
+      font-size: 20px;
+      margin: 20px 0;
+      word-break: break-all;
+    }
+
+    .page-title {
+      color: #666;
+      font-size: 14px;
+      margin-bottom: 25px;
+      word-break: break-all;
+    }
+
+    .status {
+      background: #ffcdd2;
+      color: #b71c1c;
+      padding: 15px 25px;
+      border-radius: 10px;
+      font-weight: bold;
+      font-size: 16px;
+      margin-bottom: 25px;
+    }
+
+    .close-btn {
+      background: linear-gradient(135deg, #d50000 0%, #ff1744 100%);
+      color: white;
+      border: none;
+      padding: 15px 40px;
+      font-size: 18px;
+      font-weight: bold;
+      border-radius: 30px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .close-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 5px 20px rgba(213, 0, 0, 0.4);
+    }
+  </style>
+</head>
+<body>
+  <div class="alert-container">
+    <div class="alert-icon">🚨</div>
+    <h1>Text Not Found!</h1>
+    <p class="message">The following text was not detected on the page:</p>
+    <div class="search-text" id="searchText">Loading...</div>
+    <p class="page-title">Page: <span id="pageTitle">Loading...</span></p>
+    <div class="status">🛑 Auto-refresh has been stopped</div>
+    <button class="close-btn" onclick="window.close()">Got It</button>
+  </div>
+
+  <script>
+    // Get URL parameters
+    const params = new URLSearchParams(window.location.search);
+    const searchText = params.get('text') || 'Unknown';
+    const pageTitle = params.get('title') || 'Unknown page';
+
+    document.getElementById('searchText').textContent = `"${searchText}"`;
+    document.getElementById('pageTitle').textContent = pageTitle;
+
+    // Play alert sound
+    function playAlertSound() {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      
+      function playBeep(frequency, startTime, duration) {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = frequency;
+        oscillator.type = 'sine';
+        
+        gainNode.gain.setValueAtTime(0.3, startTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+        
+        oscillator.start(startTime);
+        oscillator.stop(startTime + duration);
+      }
+
+      // Play attention-grabbing beep pattern
+      const now = audioContext.currentTime;
+      playBeep(880, now, 0.2);
+      playBeep(880, now + 0.25, 0.2);
+      playBeep(1100, now + 0.5, 0.3);
+    }
+
+    // Play sound on load
+    playAlertSound();
+
+    // Flash the window title
+    let flashState = true;
+    setInterval(() => {
+      document.title = flashState ? '⚠️ ALERT - Text Not Found!' : '🚨 CHECK NOW!';
+      flashState = !flashState;
+    }, 500);
+  </script>
+</body>
+</html>
