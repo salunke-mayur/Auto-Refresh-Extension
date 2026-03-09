@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const tab = await getCurrentTab();
     const data = await chrome.storage.local.get([`alarm_active_${tab.id}`]);
     const alarmActive = data[`alarm_active_${tab.id}`];
-    
+
     if (alarmActive) {
       stopAlarmBtn.style.display = 'block';
     } else {

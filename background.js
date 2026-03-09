@@ -40,7 +40,7 @@ async function playAlarmSound(tabId) {
   if (tabId) {
     await chrome.storage.local.set({ [`alarm_active_${tabId}`]: true });
   }
-  
+
   await setupOffscreenDocument();
   try {
     await chrome.runtime.sendMessage({ action: 'playAlarm' });
@@ -54,7 +54,7 @@ async function stopAlarmSound(tabId) {
   if (tabId) {
     await chrome.storage.local.remove(`alarm_active_${tabId}`);
   }
-  
+
   try {
     await chrome.runtime.sendMessage({ action: 'stopAlarm' });
   } catch (error) {
@@ -141,10 +141,13 @@ function stopBadgeCountdown(tabId) {
   }
 }
 
-async function checkTextOnPage(tabId, searchText, notificationPrefs = {}) {
+async function checkTextOnPage(tabId, searchText, notificationPrefs = {}, retryCount = 0) {
   if (!searchText) return;
 
-  console.log(`Checking for text "${searchText}" on tab ${tabId}`);
+  const maxRetries = 5;
+  const retryDelays = [1000, 2000, 3000, 4000, 5000]; // Increasing delays: 1s, 2s, 3s, 4s, 5s
+
+  console.log(`Checking for text "${searchText}" on tab ${tabId} (attempt ${retryCount + 1}/${maxRetries + 1})`);
 
   // Default preferences to true if not specified
   const prefs = {
@@ -156,8 +159,16 @@ async function checkTextOnPage(tabId, searchText, notificationPrefs = {}) {
     const results = await chrome.scripting.executeScript({
       target: { tabId: tabId },
       func: (text) => {
+        // Check if document is fully loaded
+        if (document.readyState !== 'complete') {
+          return { found: false, pageReady: false };
+        }
         const bodyText = document.body ? document.body.innerText : '';
-        return bodyText.toLowerCase().includes(text.toLowerCase());
+        return { 
+          found: bodyText.toLowerCase().includes(text.toLowerCase()),
+          pageReady: true,
+          bodyLength: bodyText.length
+        };
       },
       args: [searchText]
     });
@@ -165,12 +176,30 @@ async function checkTextOnPage(tabId, searchText, notificationPrefs = {}) {
     console.log('Script execution results:', results);
 
     if (results && results[0]) {
-      const textFound = results[0].result;
-      console.log(`Text found: ${textFound}`);
+      const { found: textFound, pageReady, bodyLength } = results[0].result;
+      console.log(`Text found: ${textFound}, Page ready: ${pageReady}, Body length: ${bodyLength}`);
+
+      // If page not ready or body is too short (likely still loading), retry
+      if (!pageReady || bodyLength < 100) {
+        if (retryCount < maxRetries) {
+          console.log(`Page not fully loaded, retrying in ${retryDelays[retryCount]}ms...`);
+          setTimeout(() => checkTextOnPage(tabId, searchText, notificationPrefs, retryCount + 1), retryDelays[retryCount]);
+          return;
+        }
+      }
+
+      // If text not found, retry a few times before alerting (to handle late-loading content)
+      if (!textFound && retryCount < maxRetries) {
+        console.log(`Text not found, retrying in ${retryDelays[retryCount]}ms...`);
+        setTimeout(() => checkTextOnPage(tabId, searchText, notificationPrefs, retryCount + 1), retryDelays[retryCount]);
+        return;
+      }
 
       if (!textFound) {
           const tab = await chrome.tabs.get(tabId);
           const pageTitle = tab.title || 'the page';
+
+          console.log(`Text "${searchText}" confirmed missing after ${retryCount + 1} attempts. Triggering alert.`);
 
           // Stop the auto-refresh
           await stopRefresh(tabId);
@@ -201,10 +230,16 @@ async function checkTextOnPage(tabId, searchText, notificationPrefs = {}) {
           // Always update badge to show warning
           await chrome.action.setBadgeText({ text: '!', tabId: tabId });
           await chrome.action.setBadgeBackgroundColor({ color: '#ff5252', tabId: tabId });
+        } else {
+          console.log(`Text "${searchText}" found on page.`);
         }
     }
   } catch (error) {
     console.error('Error checking text on page:', error);
+    // Retry on error (page might be in transition)
+    if (retryCount < maxRetries) {
+      setTimeout(() => checkTextOnPage(tabId, searchText, notificationPrefs, retryCount + 1), retryDelays[retryCount]);
+    }
   }
 }
 
