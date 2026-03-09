@@ -138,35 +138,64 @@
     document.getElementById('pageTitle').textContent = pageTitle;
 
     // Play alert sound
+    let audioContext;
+    let soundInterval;
+
     function playAlertSound() {
-      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-      
-      function playBeep(frequency, startTime, duration) {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+
+      function playBeep(frequency, startTime, duration, volume = 0.5) {
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
-        
+
         oscillator.connect(gainNode);
         gainNode.connect(audioContext.destination);
-        
+
         oscillator.frequency.value = frequency;
-        oscillator.type = 'sine';
-        
-        gainNode.gain.setValueAtTime(0.3, startTime);
+        oscillator.type = 'square'; // Louder, more attention-grabbing
+
+        gainNode.gain.setValueAtTime(volume, startTime);
         gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
-        
+
         oscillator.start(startTime);
         oscillator.stop(startTime + duration);
       }
 
-      // Play attention-grabbing beep pattern
+      // Play loud alarm pattern
       const now = audioContext.currentTime;
-      playBeep(880, now, 0.2);
-      playBeep(880, now + 0.25, 0.2);
-      playBeep(1100, now + 0.5, 0.3);
+      // Urgent siren-like pattern
+      playBeep(880, now, 0.15, 0.6);
+      playBeep(660, now + 0.15, 0.15, 0.6);
+      playBeep(880, now + 0.3, 0.15, 0.6);
+      playBeep(660, now + 0.45, 0.15, 0.6);
+      playBeep(1100, now + 0.6, 0.25, 0.7);
     }
 
-    // Play sound on load
+    // Play sound immediately
     playAlertSound();
+
+    // Repeat the alarm every 2 seconds for 30 seconds
+    let repeatCount = 0;
+    soundInterval = setInterval(() => {
+      repeatCount++;
+      if (repeatCount >= 15) { // Stop after 30 seconds (15 x 2s)
+        clearInterval(soundInterval);
+        return;
+      }
+      playAlertSound();
+    }, 2000);
+
+    // Stop sound when window closes
+    window.addEventListener('beforeunload', () => {
+      if (soundInterval) clearInterval(soundInterval);
+    });
+
+    // Stop sound when clicking the button
+    document.querySelector('.close-btn').addEventListener('click', () => {
+      if (soundInterval) clearInterval(soundInterval);
+    });
 
     // Flash the window title
     let flashState = true;

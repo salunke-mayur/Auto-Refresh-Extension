@@ -87,35 +87,90 @@ async function checkTextOnPage(tabId, searchText) {
           // Stop the auto-refresh
           await stopRefresh(tabId);
 
-          // Open bold popup alert window
-          const alertUrl = chrome.runtime.getURL('alert.html') + 
+          // Open bold popup alert window - MAXIMIZED for multi-monitor visibility
+          const alertUrl = chrome.runtime.getURL('alert.html') +
             `?text=${encodeURIComponent(searchText)}&title=${encodeURIComponent(pageTitle)}`;
-          
+
           chrome.windows.create({
             url: alertUrl,
             type: 'popup',
-            width: 550,
-            height: 500,
+            state: 'maximized',
             focused: true
           });
 
-          // Flash the original tab's title to grab attention
+          // Add a flashing red overlay on the original page for visibility
           try {
             await chrome.scripting.executeScript({
               target: { tabId: tabId },
               func: (text) => {
+                // Create fullscreen flashing overlay
+                const overlay = document.createElement('div');
+                overlay.id = 'auto-refresh-alert-overlay';
+                overlay.innerHTML = `
+                  <div style="
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    width: 100vw;
+                    height: 100vh;
+                    background: rgba(255, 0, 0, 0.9);
+                    z-index: 2147483647;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    flex-direction: column;
+                    animation: flash 0.5s ease-in-out infinite alternate;
+                  ">
+                    <div style="font-size: 100px; margin-bottom: 20px;">🚨</div>
+                    <div style="color: white; font-size: 48px; font-weight: bold; text-align: center; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
+                      TEXT NOT FOUND!
+                    </div>
+                    <div style="color: white; font-size: 24px; margin-top: 20px; text-align: center; max-width: 80%;">
+                      "${text}" is missing from this page
+                    </div>
+                    <div style="color: #ffcdd2; font-size: 18px; margin-top: 30px;">
+                      Auto-refresh has been stopped
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="
+                      margin-top: 40px;
+                      padding: 20px 60px;
+                      font-size: 24px;
+                      font-weight: bold;
+                      background: white;
+                      color: #d50000;
+                      border: none;
+                      border-radius: 50px;
+                      cursor: pointer;
+                    ">
+                      DISMISS
+                    </button>
+                  </div>
+                `;
+
+                // Add flash animation
+                const style = document.createElement('style');
+                style.textContent = `
+                  @keyframes flash {
+                    0% { background: rgba(255, 0, 0, 0.9); }
+                    100% { background: rgba(180, 0, 0, 0.95); }
+                  }
+                `;
+                document.head.appendChild(style);
+                document.body.appendChild(overlay);
+
+                // Flash the title
                 const originalTitle = document.title;
                 let flashCount = 0;
-                const maxFlashes = 30; // Flash for 15 seconds
-                
+                const maxFlashes = 60; // Flash for 30 seconds
+
                 const flashInterval = setInterval(() => {
                   if (flashCount >= maxFlashes) {
                     document.title = originalTitle;
                     clearInterval(flashInterval);
                     return;
                   }
-                  document.title = flashCount % 2 === 0 
-                    ? `🚨 TEXT NOT FOUND: "${text}"` 
+                  document.title = flashCount % 2 === 0
+                    ? `🚨 TEXT NOT FOUND: "${text}"`
                     : `⚠️ CHECK NOW!`;
                   flashCount++;
                 }, 500);
@@ -123,7 +178,7 @@ async function checkTextOnPage(tabId, searchText) {
               args: [searchText]
             });
           } catch (flashError) {
-            console.error('Flash title error:', flashError);
+            console.error('Flash overlay error:', flashError);
           }
 
           // Show Chrome notification as backup
