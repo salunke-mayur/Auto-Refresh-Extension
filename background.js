@@ -106,51 +106,64 @@ async function checkTextOnPage(tabId, searchText) {
                 // Create fullscreen flashing overlay
                 const overlay = document.createElement('div');
                 overlay.id = 'auto-refresh-alert-overlay';
-                overlay.innerHTML = `
-                  <div style="
-                    position: fixed;
-                    top: 0;
-                    left: 0;
-                    width: 100vw;
-                    height: 100vh;
-                    background: rgba(255, 0, 0, 0.9);
-                    z-index: 2147483647;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    flex-direction: column;
-                    animation: flash 0.5s ease-in-out infinite alternate;
-                  ">
-                    <div style="font-size: 100px; margin-bottom: 20px;">🚨</div>
-                    <div style="color: white; font-size: 48px; font-weight: bold; text-align: center; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);">
-                      TEXT NOT FOUND!
-                    </div>
-                    <div style="color: white; font-size: 24px; margin-top: 20px; text-align: center; max-width: 80%;">
-                      "${text}" is missing from this page
-                    </div>
-                    <div style="color: #ffcdd2; font-size: 18px; margin-top: 30px;">
-                      Auto-refresh has been stopped
-                    </div>
-                    <button onclick="this.parentElement.parentElement.remove()" style="
-                      margin-top: 40px;
-                      padding: 20px 60px;
-                      font-size: 24px;
-                      font-weight: bold;
-                      background: white;
-                      color: #d50000;
-                      border: none;
-                      border-radius: 50px;
-                      cursor: pointer;
-                    ">
-                      DISMISS
-                    </button>
-                  </div>
+                overlay.style.cssText = `
+                  position: fixed;
+                  top: 0;
+                  left: 0;
+                  width: 100vw;
+                  height: 100vh;
+                  background: rgba(255, 0, 0, 0.9);
+                  z-index: 2147483647;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  flex-direction: column;
+                  animation: autoRefreshFlash 0.5s ease-in-out infinite alternate;
                 `;
+
+                const icon = document.createElement('div');
+                icon.style.cssText = 'font-size: 100px; margin-bottom: 20px;';
+                icon.textContent = '🚨';
+
+                const title = document.createElement('div');
+                title.style.cssText = 'color: white; font-size: 48px; font-weight: bold; text-align: center; text-shadow: 2px 2px 4px rgba(0,0,0,0.5);';
+                title.textContent = 'TEXT NOT FOUND!';
+
+                const message = document.createElement('div');
+                message.style.cssText = 'color: white; font-size: 24px; margin-top: 20px; text-align: center; max-width: 80%;';
+                message.textContent = `"${text}" is missing from this page`;
+
+                const status = document.createElement('div');
+                status.style.cssText = 'color: #ffcdd2; font-size: 18px; margin-top: 30px;';
+                status.textContent = 'Auto-refresh has been stopped';
+
+                const dismissBtn = document.createElement('button');
+                dismissBtn.style.cssText = `
+                  margin-top: 40px;
+                  padding: 20px 60px;
+                  font-size: 24px;
+                  font-weight: bold;
+                  background: white;
+                  color: #d50000;
+                  border: none;
+                  border-radius: 50px;
+                  cursor: pointer;
+                `;
+                dismissBtn.textContent = 'DISMISS';
+                dismissBtn.addEventListener('click', () => {
+                  overlay.remove();
+                });
+
+                overlay.appendChild(icon);
+                overlay.appendChild(title);
+                overlay.appendChild(message);
+                overlay.appendChild(status);
+                overlay.appendChild(dismissBtn);
 
                 // Add flash animation
                 const style = document.createElement('style');
                 style.textContent = `
-                  @keyframes flash {
+                  @keyframes autoRefreshFlash {
                     0% { background: rgba(255, 0, 0, 0.9); }
                     100% { background: rgba(180, 0, 0, 0.95); }
                   }
