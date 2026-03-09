@@ -3,7 +3,7 @@ const badgeIntervals = new Map();
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === 'start') {
-    startRefresh(message.tabId, message.interval).then(() => {
+    startRefresh(message.tabId, message.interval, message.searchText).then(() => {
       sendResponse({ success: true });
     });
     return true;
@@ -58,7 +58,45 @@ function stopBadgeCountdown(tabId) {
   }
 }
 
-async function startRefresh(tabId, intervalSeconds) {
+async function checkTextOnPage(tabId, searchText) {
+  if (!searchText) return;
+
+  try {
+    const results = await chrome.scripting.executeScript({
+      target: { tabId: tabId },
+      func: (text) => {
+        return document.body.innerText.includes(text);
+      },
+      args: [searchText]
+    });
+
+    if (results && results[0]) {
+      const textFound = results[0].result;
+
+      if (!textFound) {
+        const tab = await chrome.tabs.get(tabId);
+        const pageTitle = tab.title || 'the page';
+
+        chrome.notifications.create(`text-missing-${tabId}-${Date.now()}`, {
+          type: 'basic',
+          iconUrl: 'icons/icon128.png',
+          title: '⚠️ Text Not Found!',
+          message: `"${searchText}" is missing from ${pageTitle}`,
+          priority: 2
+        });
+
+        await chrome.action.setBadgeText({ text: '!', tabId: tabId });
+        await chrome.action.setBadgeBackgroundColor({ color: '#ff5252', tabId: tabId });
+
+        setTimeout(() => updateBadge(tabId), 3000);
+      }
+    }
+  } catch (error) {
+    console.error('Error checking text on page:', error);
+  }
+}
+
+async function startRefresh(tabId, intervalSeconds, searchText = '') {
   await stopRefresh(tabId);
 
   const intervalMs = intervalSeconds * 1000;
@@ -68,7 +106,8 @@ async function startRefresh(tabId, intervalSeconds) {
     [`refresh_${tabId}`]: {
       isActive: true,
       interval: intervalSeconds,
-      nextRefresh: nextRefresh
+      nextRefresh: nextRefresh,
+      searchText: searchText
     }
   });
 
@@ -79,7 +118,8 @@ async function startRefresh(tabId, intervalSeconds) {
 
   activeRefreshers.set(tabId, {
     interval: intervalSeconds,
-    alarmName: alarmName
+    alarmName: alarmName,
+    searchText: searchText
   });
 
   startBadgeCountdown(tabId);
@@ -106,10 +146,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     try {
       const tab = await chrome.tabs.get(tabId);
       if (tab) {
-        await chrome.tabs.reload(tabId);
-
         const data = await chrome.storage.local.get([`refresh_${tabId}`]);
         const refreshData = data[`refresh_${tabId}`];
+
+        await chrome.tabs.reload(tabId);
 
         if (refreshData && refreshData.isActive) {
           const nextRefresh = Date.now() + (refreshData.interval * 1000);
@@ -119,6 +159,10 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
               nextRefresh: nextRefresh
             }
           });
+
+          if (refreshData.searchText) {
+            setTimeout(() => checkTextOnPage(tabId, refreshData.searchText), 2000);
+          }
         }
       }
     } catch (error) {

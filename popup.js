@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   const intervalInput = document.getElementById('interval');
+  const searchTextInput = document.getElementById('searchText');
   const startBtn = document.getElementById('startBtn');
   const stopBtn = document.getElementById('stopBtn');
   const statusEl = document.getElementById('status');
@@ -22,6 +23,8 @@ document.addEventListener('DOMContentLoaded', () => {
       statusEl.className = 'status-on';
       intervalInput.value = refreshData.interval;
       intervalInput.disabled = true;
+      searchTextInput.value = refreshData.searchText || '';
+      searchTextInput.disabled = true;
       startBtn.disabled = true;
       stopBtn.disabled = false;
       startCountdown(refreshData.nextRefresh);
@@ -29,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
       statusEl.textContent = 'OFF';
       statusEl.className = 'status-off';
       intervalInput.disabled = false;
+      searchTextInput.disabled = false;
       startBtn.disabled = false;
       stopBtn.disabled = true;
       nextRefreshEl.textContent = '';
@@ -67,12 +71,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
+    const searchText = searchTextInput.value.trim();
     const tab = await getCurrentTab();
 
     await chrome.runtime.sendMessage({
       action: 'start',
       tabId: tab.id,
-      interval: interval
+      interval: interval,
+      searchText: searchText
     });
 
     window.close();
