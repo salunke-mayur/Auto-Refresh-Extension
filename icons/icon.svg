@@ -4,12 +4,15 @@
       <stop offset="0%" style="stop-color:#1a1a2e"/>
       <stop offset="100%" style="stop-color:#16213e"/>
     </linearGradient>
-    <linearGradient id="arrow" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="ring" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" style="stop-color:#00d4ff"/>
-      <stop offset="100%" style="stop-color:#00c853"/>
+      <stop offset="100%" style="stop-color:#00e676"/>
     </linearGradient>
   </defs>
-  <circle cx="64" cy="64" r="60" fill="url(#bg)" stroke="#00d4ff" stroke-width="4"/>
-  <path d="M64 24 A40 40 0 1 1 24 64" fill="none" stroke="url(#arrow)" stroke-width="8" stroke-linecap="round"/>
-  <polygon points="24,44 24,74 44,64" fill="url(#arrow)"/>
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="58" fill="url(#bg)"/>
+  <!-- Refresh arrow arc -->
+  <path d="M64 24 A40 40 0 1 1 24 64" fill="none" stroke="url(#ring)" stroke-width="10" stroke-linecap="round"/>
+  <!-- Arrow head -->
+  <polygon points="20,45 20,75 40,64" fill="#00e676"/>
 </svg>
