@@ -81,7 +81,8 @@ document.addEventListener('DOMContentLoaded', () => {
       searchText: searchText
     });
 
-    window.close();
+    // Small delay to ensure storage is updated before closing
+    setTimeout(() => window.close(), 100);
   });
 
   stopBtn.addEventListener('click', async () => {
@@ -92,7 +93,8 @@ document.addEventListener('DOMContentLoaded', () => {
       tabId: tab.id
     });
 
-    window.close();
+    // Small delay to ensure storage is updated before closing
+    setTimeout(() => window.close(), 100);
   });
 
   chrome.storage.onChanged.addListener((changes, namespace) => {
